@@ -29,6 +29,43 @@ def safe_error(exc):
         return 'Timeout'
     return type(exc).__name__
 
+def compact_nhl(day, games, finns, standings, level=0):
+    def name(v):
+        return v.get('default','') if isinstance(v,dict) else (v or '')
+    g=[ [x['awayTeam']['abbrev'],x['awayTeam'].get('score'),x['homeTeam']['abbrev'],x['homeTeam'].get('score'),x.get('gameState')] for x in games]
+    p=[[name(x.get('name')),x.get('team'),x.get('goals'),x.get('assists'),x.get('saves')] for x in finns]
+    s=[[name(x.get('teamAbbrev')),x.get('points'),x.get('l10Wins'),x.get('l10Losses'),x.get('l10OtLosses')] for x in standings]
+    if level==1:
+        p=[x for x in p if (x[2] or 0)+(x[3] or 0)>0 or (x[4] or 0)>0]
+        s=sorted(s,key=lambda x:x[1] or 0,reverse=True)[:8]
+    elif level>=2:
+        p=sorted(p,key=lambda x:((x[2] or 0)+(x[3] or 0),x[4] or 0),reverse=True)[:8]
+        s=[]
+    return {'date':str(day),'detail_level':level,'games_columns':['away','away_score','home','home_score','state'],'games':g,'players_columns':['name','team','goals','assists','saves'],'players':p,'standings_columns':['team','points','last10_wins','last10_losses','last10_ot_losses'],'standings':s}
+
+def compact_json(value):
+    return json.dumps(value,ensure_ascii=False,separators=(',',':'))
+
+def completion_with_budget(key,payload,day,games,finns,standings,ai):
+    for level in range(3):
+        raw=compact_json(compact_nhl(day,games,finns,standings,level))
+        payload['messages'][1]['content']=raw
+        size=len(compact_json(payload).encode('utf-8'))
+        ai['payload_bytes']=size
+        ai['estimated_input_tokens']=(size+2)//3
+        ai['detail_level']=level
+        print('Groq: payload bytes='+str(size)+'; estimated input tokens='+str(ai['estimated_input_tokens'])+'; detail level='+str(level),flush=True)
+        if size>10000 and level<2:
+            continue
+        ai['attempted']+=1
+        try:
+            return groq_request('chat/completions',key,payload)
+        except Exception as exc:
+            if getattr(exc,'status_code',None)==413 and level<2:
+                print('::warning::Groq HTTP 413; retrying with reduced data',flush=True)
+                continue
+            raise
+
 def collect():
     now=datetime.datetime.now(ZoneInfo('Europe/Zurich')); day=now.date()-datetime.timedelta(days=1)
     standings=nhl('standings/now')['standings']; games=nhl('score/'+str(day))['games']
@@ -88,14 +125,12 @@ def collect():
         if ai['model_available'] is None:
             candidates=preferred
         if candidates:
-            compact={'games':[{k:g.get(k) for k in ('awayTeam','homeTeam','gameState')} for g in games],'finns':finns,'standings':[{k:s.get(k) for k in ('teamAbbrev','points','l10Wins','l10OtLosses')} for s in standings]}
             for lang in ('fi','de','en'):
                 for model in list(candidates):
-                    ai['attempted']+=1
                     print('Groq: requesting '+lang+' via '+model,flush=True)
                     try:
-                        payload={'model':model,'messages':[{'role':'system','content':'Write a concise NHL briefing in '+{'fi':'Finnish','de':'German','en':'English'}[lang]+'. Use only supplied facts. Do not invent news, injuries or rumors. Plain text.'},{'role':'user','content':json.dumps(compact)}]}
-                        result=groq_request('chat/completions',key,payload)
+                        payload={'model':model,'messages':[{'role':'system','content':'Write a concise NHL briefing in '+{'fi':'Finnish','de':'German','en':'English'}[lang]+'. Use only supplied facts. Do not invent news, injuries or rumors. Plain text.'},{'role':'user','content':''}]}
+                        result=completion_with_budget(key,payload,day,games,finns,standings,ai)
                         brief=result['choices'][0]['message']['content']
                         if not isinstance(brief,str) or not brief.strip():
                             raise ValueError('Empty completion')
@@ -121,7 +156,7 @@ def collect():
                         if status in (401,403):
                             candidates=[]
                             break
-                        if status in (400,404,429) or isinstance(exc,ValueError):
+                        if status in (400,404,413,429) or isinstance(exc,ValueError):
                             candidates=[x for x in candidates if x!=model]
                             continue
                         break
