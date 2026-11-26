@@ -9,12 +9,18 @@ def utcnow():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 def groq_request(endpoint, key, payload=None):
-    headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'}
-    req=urllib.request.Request('https://api.groq.com/openai/v1/'+endpoint, data=json.dumps(payload).encode() if payload is not None else None, headers=headers)
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return json.load(r)
+    from groq import Groq
+    with Groq(api_key=key, timeout=60.0, max_retries=1) as client:
+        if endpoint == 'models':
+            return client.models.list().model_dump()
+        if endpoint == 'chat/completions':
+            return client.chat.completions.create(**payload).model_dump()
+        raise ValueError('Unsupported endpoint')
 
 def safe_error(exc):
+    status=getattr(exc,'status_code',None)
+    if isinstance(status,int):
+        return 'HTTP '+str(status)+' ('+type(exc).__name__+')'
     if isinstance(exc, urllib.error.HTTPError):
         return 'HTTP '+str(exc.code)
     if isinstance(exc, urllib.error.URLError):
@@ -53,6 +59,7 @@ def collect():
     ai={'status':'not_configured','model':model,'key_configured':bool(key),'model_available':None,'attempted':0,'successful':0,'tokens':{'prompt':0,'completion':0,'total':0},'last_success':None,'checked_at':utcnow(),'errors':[],'languages':{}}
     data['ai']=ai
     print('NHL: '+str(len(games))+' games; '+str(len(standings))+' teams; '+str(len(finns))+' Finnish players; '+str(len(errors))+' data warnings',flush=True)
+    print('Groq: transport=official Python SDK',flush=True)
     print('Groq: API key configured: '+str(bool(key))+'; model: '+model,flush=True)
     if key:
         ai['status']='error'
