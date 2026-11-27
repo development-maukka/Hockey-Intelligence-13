@@ -30,6 +30,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install 'groq>=0.30,<2'
+      - run: python -m pip install 'sportsdataverse==0.2.0b1'
+        continue-on-error: true
       - run: python -m py_compile update.py
       - run: python update.py
         env:
