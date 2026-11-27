@@ -121,6 +121,47 @@ def coverage():
     out['cap']={'status':'not_configured','source':'PuckPedia / CapWages','items':[]}
     return out
 
+def europe(key, model):
+    from zoneinfo import ZoneInfo
+    now=datetime.datetime.now(ZoneInfo('Europe/Zurich'))
+    season=now.year+(now.month>=7)
+    out={}
+    for league in ('nl','liiga'):
+        entry={'standings':[],'games':[],'players':[],'brief':{},'errors':[]}
+        out[league]=entry
+        try:
+            if league=='nl':
+                from sportsdataverse.hockey.sihf import sihf_standings,sihf_results,sihf_player_stats
+                calls={'standings':lambda:sihf_standings(season=season,league_id=1),'games':lambda:sihf_results(season=season,league_id=1),'players':lambda:sihf_player_stats(season=season,league_id=1)}
+            else:
+                from sportsdataverse.hockey.liiga import liiga_standings,liiga_games,liiga_player_stats
+                calls={'standings':lambda:liiga_standings(season=season,tournament='runkosarja'),'games':lambda:liiga_games(season=season,tournament='runkosarja'),'players':lambda:liiga_player_stats(season=season,tournament='runkosarja')}
+            for name,call in calls.items():
+                try:
+                    frame=call()
+                    rows=frame.to_dicts()
+                    rows=[r for r in rows if r.get('row_type','data')=='data']
+                    if name=='games':
+                        start=(now.date()-datetime.timedelta(days=7)).isoformat()
+                        end=(now.date()+datetime.timedelta(days=1)).isoformat()
+                        rows=[r for r in rows if start<=str(r.get('date') or r.get('start') or '')[:10]<=end]
+                    entry[name]=json.loads(json.dumps(rows,default=str))
+                    print('Europe '+league+' '+name+': '+str(len(rows)),flush=True)
+                except Exception as exc:
+                    entry['errors'].append(name+': '+safe_error(exc))
+        except Exception as exc:
+            entry['errors'].append(safe_error(exc))
+        if key and (entry['games'] or entry['standings']):
+            facts={'league':league,'games':entry['games'][:12],'standings':entry['standings'][:5]}
+            compact=[{k:v for k,v in r.items() if k in ('date','start','home_team_name','away_team_name','score_home','score_away','home_team','away_team','home_team_name','away_team_name','home_goals','away_goals','ended','team_name','points','rank','ranking','games_played','home_team_goals','away_team_goals','home_team_team_name','away_team_team_name')} for r in facts['games']+facts['standings']]
+            for lang in ('fi','de','en'):
+                try:
+                    result=groq_request('chat/completions',key,{'model':model,'messages':[{'role':'system','content':'Write a short '+{'fi':'Finnish','de':'German','en':'English'}[lang]+' hockey briefing based ONLY on supplied data. Do not infer missing scores or report unfinished games as final. Return JSON array of 1 to 3 objects with title and body, each body below 350 characters.'},{'role':'user','content':compact_json({'league':league,'rows':compact})}]})
+                    entry['brief'][lang]=parse_brief(result['choices'][0]['message']['content'])
+                except Exception as exc:
+                    entry['errors'].append('AI '+lang+': '+safe_error(exc))
+    return out
+
 def collect():
     now=datetime.datetime.now(ZoneInfo('Europe/Zurich')); day=now.date()-datetime.timedelta(days=1)
     standings=nhl('standings/now')['standings']; games=nhl('score/'+str(day))['games']
@@ -218,5 +259,6 @@ def collect():
                         break
         ai['status']='ok' if ai['successful']==3 else ('partial' if ai['successful'] else 'error')
     print('Groq: status='+ai['status']+'; completions='+str(ai['successful'])+'/'+str(ai['attempted'])+'; tokens='+str(ai['tokens']['total']),flush=True)
+    data['leagues']=europe(key,ai['model'])
     path=Path('site/data.json'); tmp=path.with_suffix('.tmp'); tmp.write_text(json.dumps(data,ensure_ascii=False)); tmp.replace(path)
 if __name__=='__main__': collect()
