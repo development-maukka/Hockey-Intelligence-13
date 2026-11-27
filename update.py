@@ -95,6 +95,26 @@ def team_tags(value):
     if isinstance(nested,dict): value={**value,**nested}
     return [str(value[k]) for k in ('abbreviation','displayName','shortDisplayName','name') if isinstance(value.get(k),str)]
 
+def salary_cap():
+    base='https://api.eyewallanalytics.com/v1/nhl/contracts'
+    out={'status':'error','source':'nhl-contracts / EyeWall Analytics','url':'https://github.com/ehlersio/nhl-contracts','items':[],'players':[]}
+    try:
+        raw=get(base+'/teams')
+        d=raw['data']
+        if d.get('basis')!='roster' or not isinstance(d.get('teams'),list):
+            raise ValueError('Current roster basis unavailable')
+        out.update(status='ok',items=d['teams'],season=d.get('season'),limits=d.get('capLimits'),notes=d.get('estimateNotes'),updated=raw.get('meta',{}).get('generatedAt'))
+        try:
+            p=get(base)['data']
+            if p.get('season')==d.get('season'):
+                out['players']=[{k:r.get(k) for k in ('player','currentTeam','capHit','endSeason','expiryType','yearsLeft')} for r in p['players'] if r.get('onRoster') and r.get('currentTeam')]
+        except Exception as exc:
+            print('::warning::Cap players: '+safe_error(exc),flush=True)
+        print('Cap teams: '+str(len(out['items'])),flush=True)
+    except Exception as exc:
+        print('::warning::Cap: '+safe_error(exc),flush=True)
+    return out
+
 def coverage():
     out={}
     for kind in ('news','injuries','transactions'):
@@ -118,7 +138,7 @@ def coverage():
         except Exception as exc:
             out[kind]={'status':'error','source':'ESPN','items':[]}
             print('::warning::Coverage '+kind+': '+safe_error(exc),flush=True)
-    out['cap']={'status':'not_configured','source':'PuckPedia / CapWages','items':[]}
+    out['cap']=salary_cap()
     return out
 
 def europe(key, model):
