@@ -89,6 +89,12 @@ def parse_brief(raw):
     return items
 
 ESPN='https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/'
+def team_tags(value):
+    if not isinstance(value,dict): return []
+    nested=value.get('team')
+    if isinstance(nested,dict): value={**value,**nested}
+    return [str(value[k]) for k in ('abbreviation','displayName','shortDisplayName','name') if isinstance(value.get(k),str)]
+
 def coverage():
     out={}
     for kind in ('news','injuries','transactions'):
@@ -97,15 +103,15 @@ def coverage():
             rows=[]
             if kind=='news':
                 for a in raw['articles']:
-                    rows.append({'title':a.get('headline'),'body':a.get('description'),'date':a.get('published'),'url':a.get('links',{}).get('web',{}).get('href')})
+                    rows.append({'teams':[tag for category in a.get('categories',[]) if isinstance(category,dict) and (category.get('type')=='team' or category.get('team')) for tag in team_tags(category)],'title':a.get('headline'),'body':a.get('description'),'date':a.get('published'),'url':a.get('links',{}).get('web',{}).get('href')})
             elif kind=='injuries':
                 for team in raw['injuries']:
                     for a in team.get('injuries',[]):
-                        rows.append({'team':team.get('displayName'),'title':a.get('athlete',{}).get('displayName'),'status':a.get('status'),'body':a.get('shortComment'),'date':a.get('date'),'return':a.get('details',{}).get('returnDate')})
+                        rows.append({'teams':team_tags(team),'team':team.get('displayName'),'title':a.get('athlete',{}).get('displayName'),'status':a.get('status'),'body':a.get('shortComment'),'date':a.get('date'),'return':a.get('details',{}).get('returnDate')})
             else:
                 for a in raw['transactions']:
                     team=a.get('team') or {}
-                    rows.append({'title':a.get('description') or a.get('text') or a.get('headline'),'team':team.get('displayName') if isinstance(team,dict) else str(team),'date':a.get('date')})
+                    rows.append({'teams':team_tags(team)+team_tags(a.get('fromTeam'))+team_tags(a.get('toTeam')),'title':a.get('description') or a.get('text') or a.get('headline'),'team':team.get('displayName') if isinstance(team,dict) else str(team),'date':a.get('date')})
             rows=[x for x in rows if x.get('title')]
             out[kind]={'status':'ok','source':'ESPN','items':rows[:50]}
             print('Coverage '+kind+': '+str(len(rows)),flush=True)
