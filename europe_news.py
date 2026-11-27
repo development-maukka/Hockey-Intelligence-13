@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 
 SHN='https://swisshockeynews.ch'
 JATKO='https://www.jatkoaika.com'
+SUOMI='https://www.suomikiekko.com'
 SOURCES={'nl':{'news':SHN+'/en/national-league','transactions':SHN+'/en/national-league','injuries':SHN+'/en/national-league/medicals'},'liiga':{k:JATKO+'/LIIGA' for k in ('news','transactions','injuries')}}
 
 
@@ -17,8 +18,8 @@ def fetch_page(url):
 
 def report_kind(title):
     text=title.casefold()
-    injury=bool(re.search(r'loukkaantu|leikkauk|sivuun|sivussa|sairastu|toipila|paluuarvio|palaa kokoonpano|palasi kokoonpano|injur|infirmary|health|comeback|out indefinitely|returns? to .*lineup',text))
-    transfer=bool(re.search(r'sopimuk|jatkosopimus|solmi .*jatkon|jatkaa .*asti|jatkaa .*saakka|siirty|hankki|vahvistukse|purki|pelaajakau|contract|signs?\b|signed\b|joins?\b|join\b|extends?\b|loan\b|future lie|interested in|interest from|negotiat|parts? ways',text))
+    injury=bool(re.search(r'loukkaantu|leikkau|sivuun|sivussa|sairastu|toipila|paluuarvio|palaa kokoonpano|palasi kokoonpano|injur|infirmary|health|comeback|out indefinitely|returns? to .*lineup',text))
+    transfer=bool(re.search(r'sopimuk|jatkosopimus|solmi .*jatkon|jatkaa .*asti|jatkaa .*saakka|siirty|hankki|vahvistukse|purki|purettu|vaihtamassa maisemaa|pelaajakau|contract|signs?\b|signed\b|joins?\b|join\b|extends?\b|loan\b|future lie|interested in|interest from|negotiat|parts? ways',text))
     return injury,transfer
 
 
@@ -29,7 +30,7 @@ def transfer_status(title):
 
 def item(title,url,date,source,language):
     date=datetime.datetime.fromisoformat(date).isoformat() if 'T' in date else datetime.date.fromisoformat(date).isoformat()
-    if urlsplit(url).scheme!='https' or urlsplit(url).hostname not in ('swisshockeynews.ch','www.swisshockeynews.ch','www.jatkoaika.com','jatkoaika.com'):
+    if urlsplit(url).scheme!='https' or urlsplit(url).hostname not in ('swisshockeynews.ch','www.swisshockeynews.ch','www.jatkoaika.com','jatkoaika.com','www.suomikiekko.com','suomikiekko.com'):
         raise ValueError('Unexpected article destination')
     return dict(title=title.strip()[:300],url=url,date=date,source=source,language=language)
 
@@ -66,6 +67,17 @@ def parse_jatko(html):
     return rows
 
 
+def parse_suomi(html):
+    # The publisher's Liiga page contains its dedicated, dated Liiga headlines.
+    soup=BeautifulSoup(html,'html.parser');rows=[]
+    for card in soup.select('.description'):
+        a=card.select_one('.title a[href]');d=card.select_one('time.publish[datetime]')
+        if a is not None and d is not None:
+            rows.append(item(a.get_text(' ',strip=True),a['href'],d['datetime'],'SuomiKiekko','fi'))
+    if not rows:raise ValueError('Liiga headlines not found')
+    return rows
+
+
 def recent_unique(rows,now,days=30):
     cutoff=now.date()-datetime.timedelta(days=days);seen=set();out=[]
     for row in sorted(rows,key=lambda x:x['date'],reverse=True):
@@ -94,8 +106,19 @@ def collect_coverage(league,now,fetch=fetch_page,teams=(),players=()):
             if url not in cache:
                 try:cache[url]=fetch(url)
                 except Exception as exc:cache[url]=exc
-            if isinstance(cache[url],Exception):raise cache[url]
-            rows=parse_shn(cache[url],medical=kind=='injuries') if league=='nl' else parse_jatko(cache[url])
+            try:
+                if isinstance(cache[url],Exception):raise cache[url]
+                rows=parse_shn(cache[url],medical=kind=='injuries') if league=='nl' else parse_jatko(cache[url])
+                if not rows:raise ValueError('No dated league articles parsed')
+            except Exception:
+                if league!='liiga':raise
+                fallback=SUOMI+'/liiga/'
+                if fallback not in cache:
+                    try:cache[fallback]=parse_suomi(fetch(fallback))
+                    except Exception as exc:cache[fallback]=exc
+                if isinstance(cache[fallback],Exception):raise cache[fallback]
+                rows=cache[fallback]
+                result.update(url=fallback,source='SuomiKiekko')
             if not rows:raise ValueError('No dated league articles parsed')
             rows=recent_unique(rows,now)
             if league=='nl' and kind=='injuries':rows=[r for r in rows if national_league_report(r['title'],teams,players)]
@@ -105,6 +128,7 @@ def collect_coverage(league,now,fetch=fetch_page,teams=(),players=()):
             result.update(status='ok',items=rows)
         except Exception as exc:
             result['error']=type(exc).__name__
+            print(f'Europe {league} source failure: {type(exc).__name__} HTTP {getattr(exc, "code", "n/a")}',flush=True)
         print(f'Europe {league} {kind}: {result["status"]} ({len(result["items"])})',flush=True)
         out[kind]=result
     return out

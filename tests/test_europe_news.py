@@ -35,3 +35,16 @@ class NewsTests(unittest.TestCase):
  def test_changed_layout(self):
   with self.assertRaises(ValueError):parse_shn('<html>Changed layout</html>')
   with self.assertRaises(ValueError):parse_jatko('<html>Changed layout</html>')
+
+ def test_liiga_publisher_fallback(self):
+  calls=[]
+  html='<div class="description"><div class="title"><a href="https://www.suomikiekko.com/2026/11/test/">TPS:n tähtihankinta leikkauspöydälle</a></div><time class="publish" datetime="2026-11-27T18:30:00+02:00"></time></div>'
+  def fetch(url):
+   calls.append(url)
+   if 'jatkoaika' in url:raise ConnectionError()
+   return html
+  r=collect_coverage('liiga',datetime.datetime(2026,11,27,tzinfo=datetime.timezone.utc),fetch=fetch)
+  self.assertEqual(len(calls),2)
+  self.assertTrue(all(x['status']=='ok' for x in r.values()))
+  self.assertEqual(r['injuries']['items'][0]['source'],'SuomiKiekko')
+  self.assertEqual(r['transactions']['items'],[])
