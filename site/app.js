@@ -11,8 +11,6 @@ const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefine
 let data=null,failed=false,active='overview',serial=0;
 function getStored(){try{return localStorage.getItem('hockey-theme')}catch{return null}}
 let theme=getStored()|| (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
-function applyTheme(){document.documentElement.dataset.theme=theme;const b=$('theme');b.textContent=theme==='dark'?'☀':'☾';b.title=b.ariaLabel=theme==='dark'?t.light:t.dark}
-applyTheme();$('theme').onclick=()=>{theme=theme==='dark'?'light':'dark';try{localStorage.setItem('hockey-theme',theme)}catch{}applyTheme()};
 $('refresh').title=$('refresh').ariaLabel=t.refresh;
 function section(title){const s=el('section');s.append(el('h2',title));$('main').append(s);return s}
 function table(s,headers,rows){if(!rows.length){s.append(el('p',t.empty,'muted'));return}const wrap=el('div',undefined,'table-wrap'),tb=el('table'),head=el('thead'),hr=el('tr'),body=el('tbody');for(const h of headers){const th=el('th',h);th.scope='col';hr.append(th)}head.append(hr);for(const row of rows){const tr=el('tr');for(const x of row)tr.append(el('td',x??'—'));body.append(tr)}tb.append(head,body);wrap.append(tb);s.append(wrap)}
@@ -21,7 +19,7 @@ function go(id){active=leagueTabs().includes(id)?id:'overview';if(location.hash!
 function modules(s){const g=el('div',undefined,'modules');for(const id of leagueTabs().slice(1,-1)){const b=el('button');b.type='button';b.append(el('span',tabName(id)),el('span','›'));b.onclick=()=>go(id);g.append(b)}s.append(g)}
 const clean=s=>String(s??'').replace(/\*\*|__|^[#]+\s*|^\s*[-•]\s*/gm,'').trim();
 function brief(s,value){let items=[];if(Array.isArray(value)){items=value.filter(x=>x&&typeof x.title==='string'&&typeof x.body==='string').slice(0,5)}else if(typeof value==='string'){try{const v=JSON.parse(value);if(Array.isArray(v))items=v.filter(x=>x&&typeof x.title==='string'&&typeof x.body==='string').slice(0,5)}catch{}if(!items.length){const lines=value.replace(/\r/g,'').replace(/\*\*([^*\n]+)\*\*/g,'\n$1\n').split(/\n+/).map(clean).filter(Boolean);for(const line of lines){items.push({title:'',body:line});if(items.length>=12)break}}}if(!items.length){s.append(el('p',t.empty,'muted'));return}for(const item of items){const b=el('article',undefined,'brief-item');if(item.title)b.append(el('h3',clean(item.title)));b.append(el('p',clean(item.body)));s.append(b)}s.append(el('small',t.aiNote))}
-function info(s){s.append(el('p','Development Maukka'),el('h3',t.changelog));for(const line of ['0.3.1 — Added NHL salary cap estimates and a National League medical report link.','0.3.0 — Added National League and Liiga sections.','0.2.1 — Added team logos to news, transactions and injury reports.'])s.append(el('p',line));const a=data?.ai;if(!a)return;const d=el('details'),status={ok:t.ok,partial:t.partialStatus,error:t.errorStatus,not_configured:t.not_configured}[a.status]||t.unknown;d.append(el('summary',t.diagnostics+' · '+status));table(d,[t.diagnostics,''],[[t.model,a.model],[t.available,a.model_available===true?t.yes:a.model_available===false?t.no:t.unknown],[t.calls,(a.successful??0)+' / '+(a.attempted??0)],[t.tokens,a.tokens?.total],[t.last,a.last_success?new Date(a.last_success).toLocaleString(lang):'—']]);for(const err of a.errors||[])d.append(el('p',err,'muted'));s.append(d)}
+function info(s){s.append(el('p','Development Maukka'),el('h3',t.changelog));for(const line of ['0.3.2 — Added settings for theme and followed leagues.','0.3.1 — Added NHL salary cap estimates and a National League medical report link.','0.3.0 — Added National League and Liiga sections.'])s.append(el('p',line));const a=data?.ai;if(!a)return;const d=el('details'),status={ok:t.ok,partial:t.partialStatus,error:t.errorStatus,not_configured:t.not_configured}[a.status]||t.unknown;d.append(el('summary',t.diagnostics+' · '+status));table(d,[t.diagnostics,''],[[t.model,a.model],[t.available,a.model_available===true?t.yes:a.model_available===false?t.no:t.unknown],[t.calls,(a.successful??0)+' / '+(a.attempted??0)],[t.tokens,a.tokens?.total],[t.last,a.last_success?new Date(a.last_success).toLocaleString(lang):'—']]);for(const err of a.errors||[])d.append(el('p',err,'muted'));s.append(d)}
 const extra={fi:{division:'Divisioonat',conference:'Konferenssit',league:'Koko liiga',wild:'Wild Card',wins:'V',losses:'T',ot:'JA',unavailable:'Tietolähde ei ole tällä hetkellä käytettävissä.',key:'Palkkakattodatan käyttöoikeutta ei ole vielä määritetty.',original:'Alkuperäinen lähdekieli',rumours:'Siirtohuhut eivät vielä sisälly automaattiseen hakuun.',return:'Paluuarvio',date:'Päivä'},de:{division:'Divisionen',conference:'Konferenzen',league:'Gesamtliga',wild:'Wild Card',wins:'S',losses:'N',ot:'OT',unavailable:'Datenquelle derzeit nicht verfügbar.',key:'Der Zugriff auf Salary-Cap-Daten ist noch nicht eingerichtet.',original:'Originalsprache der Quelle',rumours:'Transfergerüchte werden noch nicht automatisch erfasst.',return:'Rückkehr',date:'Datum'},en:{division:'Divisions',conference:'Conferences',league:'League',wild:'Wild Card',wins:'W',losses:'L',ot:'OT',unavailable:'Data source currently unavailable.',key:'Salary cap data access is not configured yet.',original:'Original source language',rumours:'Trade rumours are not collected automatically yet.',return:'Expected return',date:'Date'}}[lang];
 let standingsMode='division';
 const rank=(x,k)=>Number(x[k])||999;
@@ -62,10 +60,31 @@ function externalView(s,id,coverage){
   const a=el('a',t.source+' · '+(id==='cap'?'PuckPedia':'ESPN'));a.href=urls[id];a.rel='noopener noreferrer';s.append(a)
 }
 const europeanLabels={fi:{players:'Pistepörssi',unavailable:'Tietolähde ei vielä käytettävissä.',date:'Päivä',gf:'TM',ga:'PM'},de:{players:'Skorerliste',unavailable:'Datenquelle noch nicht verfügbar.',date:'Datum',gf:'GT',ga:'GE'},en:{players:'Scoring leaders',unavailable:'Data source not yet available.',date:'Date',gf:'GF',ga:'GA'}}[lang];
-let league='nhl';try{const l=localStorage.getItem('hockey-league');if(['nhl','nl','liiga'].includes(l))league=l}catch{}
+const leagueOptions=[['nhl','NHL'],['nl','National League'],['liiga','Liiga']];
+const settingsText={fi:{title:'Asetukset',theme:'Teema',leagues:'Seurattavat sarjat',close:'Sulje',minimum:'Valitse vähintään yksi sarja.'},de:{title:'Einstellungen',theme:'Design',leagues:'Verfolgte Ligen',close:'Schliessen',minimum:'Mindestens eine Liga auswählen.'},en:{title:'Settings',theme:'Theme',leagues:'Followed leagues',close:'Close',minimum:'Select at least one league.'}}[lang];
+let enabledLeagues=leagueOptions.map(x=>x[0]);
+try{const saved=JSON.parse(localStorage.getItem('hockey-enabled-leagues'));if(Array.isArray(saved)){const valid=enabledLeagues.filter(id=>saved.includes(id));if(valid.length)enabledLeagues=valid}}catch{}
+let league=enabledLeagues[0];try{const l=localStorage.getItem('hockey-league');if(enabledLeagues.includes(l))league=l}catch{}
+function savePreference(key,value){try{localStorage.setItem(key,value)}catch{}}
+function applyTheme(){document.documentElement.dataset.theme=theme}
+function openSettings(){
+ const dialog=$('settings-dialog'),body=$('settings-body');body.replaceChildren();
+ $('settings-title').textContent=settingsText.title;$('settings-close').textContent=settingsText.close;
+ const field=el('fieldset');field.append(el('legend',settingsText.theme));
+ for(const [id,label] of [['light',t.light],['dark',t.dark]]){const l=el('label'),r=el('input');r.type='radio';r.name='theme-choice';r.value=id;r.checked=theme===id;r.onchange=()=>{theme=id;savePreference('hockey-theme',theme);applyTheme()};l.append(r,document.createTextNode(label));field.append(l)}
+ const group=el('fieldset');group.append(el('legend',settingsText.leagues));const boxes=[];
+ function sync(){for(const b of boxes){b.checked=enabledLeagues.includes(b.value);b.disabled=b.checked&&enabledLeagues.length===1}}
+ for(const [id,name] of leagueOptions){const l=el('label'),b=el('input');b.type='checkbox';b.value=id;boxes.push(b);b.onchange=()=>{const next=leagueOptions.map(x=>x[0]).filter(k=>k===id?b.checked:enabledLeagues.includes(k));if(!next.length){sync();return}enabledLeagues=next;savePreference('hockey-enabled-leagues',JSON.stringify(next));sync();if(!next.includes(league)){league=next[0];savePreference('hockey-league',league);go('overview')}else render()};l.append(b,document.createTextNode(name));group.append(l)}
+ group.append(el('p',settingsText.minimum,'muted'));body.append(field,group);sync();dialog.showModal()
+}
+$('settings').title=$('settings').ariaLabel=settingsText.title;
+$('settings').onclick=openSettings;
+$('settings-close').onclick=()=>$('settings-dialog').close();
+$('settings-dialog').addEventListener('close',()=>$('settings').focus());
+applyTheme();
 function leagueTabs(){return league==='nhl'?tabs:['overview','games','standings','players','form','news','trades','injuries','info']}
 function tabName(id){return t[id]||europeanLabels[id]||id}
-function leagueNav(){const n=$('leagues');n.replaceChildren();for(const [id,name] of [['nhl','NHL'],['nl','National League'],['liiga','Liiga']]){const b=el('button',name);b.type='button';b.setAttribute('aria-current',String(id===league));b.onclick=()=>{league=id;try{localStorage.setItem('hockey-league',id)}catch{}go('overview')};n.append(b)}}
+function leagueNav(){const n=$('leagues');n.replaceChildren();n.hidden=enabledLeagues.length===1;if(n.hidden)return;for(const [id,name] of leagueOptions.filter(x=>enabledLeagues.includes(x[0]))){const b=el('button',name);b.type='button';b.setAttribute('aria-current',String(id===league));b.onclick=()=>{league=id;savePreference('hockey-league',id);go('overview')};n.append(b)}}
 function euView(s){
  const d=data?.leagues?.[league];const e=europeanLabels;
  if(!d){s.append(el('p',data?e.unavailable:failed?t.error:t.loading,'muted'));return}
