@@ -1,11 +1,12 @@
-# Hockey Intelligence 13 — 0.1.5
+# Hockey Intelligence 13 — 0.2.0
 Development Maukka
 
-Personal NHL dashboard. Enable Settings > Pages > GitHub Actions, optionally add repository secret GROQ_API_KEY, then manually run Update NHL dashboard. Public Pages is publicly accessible. No API key is sent to the browser. Scheduled runs are UTC and may be delayed. News, injuries, trades and salary cap currently link to external sources only. Finnish players are matched by current roster birth country. No live API validation yet. SVG icon and PWA manifest included; offline support not implemented.
+Personal NHL dashboard. Enable Settings > Pages > GitHub Actions, optionally add repository secret GROQ_API_KEY, then manually run Update NHL dashboard. Public Pages is publicly accessible. No API key is sent to the browser. Scheduled runs are UTC and may be delayed. ESPN news, transactions and injuries are collected automatically, subject to endpoint availability. Source text is displayed in its original language. Salary cap requires a separate authorized data source; rumours are not collected separately. Finnish players are matched by current roster birth country. No live API validation yet. SVG icon and PWA manifest included; offline support not implemented.
 
 Local use: python3 -m pip install 'groq>=0.30,<2', then python3 update.py, then python3 -m http.server 8000 --directory site.
 
 Changelog:
+- 0.2.0: Added division standings, news, transactions and injury reports.
 - 0.1.5: Redesigned the interface and made daily briefings easier to read.
 - 0.1.4: Improved AI briefing reliability.
 - 0.1.3: Automatically selects an available AI model and switches to a fallback when needed.
