@@ -177,6 +177,8 @@ def europe(key, model):
         from europe_data import collect_league
         entry=collect_league(league,season,now,safe_error)
         out[league]=entry
+        from europe_news import collect_coverage
+        entry['coverage']=collect_coverage(league,now,teams=entry['standings'],players=entry['players'])
         if key and (entry['games'] or entry['standings']):
             facts={'league':league,'games':sorted(entry['games'],key=lambda x:x['date'],reverse=True)[:12],'standings':entry['standings'][:5]}
             compact=[{k:v for k,v in r.items() if k in ('date','start','home_team_name','away_team_name','score_home','score_away','status','home_team','away_team','home_team_name','away_team_name','home_goals','away_goals','ended','team_name','points','rank','ranking','games_played','home_team_goals','away_team_goals','home_team_team_name','away_team_team_name')} for r in facts['games']+facts['standings']]
