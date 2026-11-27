@@ -8,6 +8,7 @@ on:
       - 'update.py'
       - 'europe_data.py'
       - 'europe_news.py'
+      - 'nhl_today.py'
       - 'tests/**'
       - '.github/workflows/update.yml'
       - 'requirements*.txt'

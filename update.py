@@ -216,6 +216,8 @@ def collect():
                 for p in group:
                     if p.get('playerId') in rosters: finns.append(dict(p,team=b[side]['abbrev']))
     data={'updated':now.isoformat(),'date':str(day),'games':games,'standings':standings,'finns':finns,'errors':errors,'brief':{}}
+    from nhl_today import collect_today
+    data['today']=collect_today(now,get,nhl)
     data['coverage']=coverage()
     key=os.getenv('GROQ_API_KEY','').strip()
     model=os.getenv('GROQ_MODEL','openai/gpt-oss-120b').strip()
