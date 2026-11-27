@@ -66,6 +66,24 @@ def completion_with_budget(key,payload,day,games,finns,standings,ai):
                 continue
             raise
 
+def parse_brief(raw):
+    raw=raw.strip()
+    if raw.startswith('```'):
+        raw=raw.split('\n',1)[-1].rsplit('```',1)[0].strip()
+    parsed=json.loads(raw)
+    if not isinstance(parsed,list) or not 1<=len(parsed)<=5:
+        raise ValueError('Invalid briefing structure')
+    items=[]
+    for item in parsed:
+        if not isinstance(item,dict) or not isinstance(item.get('title'),str) or not isinstance(item.get('body'),str):
+            raise ValueError('Invalid briefing item')
+        title=item['title'].strip()
+        body=item['body'].strip()
+        if not title or not body or len(title)>140 or len(body)>500:
+            raise ValueError('Invalid briefing length')
+        items.append({'title':title,'body':body})
+    return items
+
 def collect():
     now=datetime.datetime.now(ZoneInfo('Europe/Zurich')); day=now.date()-datetime.timedelta(days=1)
     standings=nhl('standings/now')['standings']; games=nhl('score/'+str(day))['games']
@@ -129,12 +147,12 @@ def collect():
                 for model in list(candidates):
                     print('Groq: requesting '+lang+' via '+model,flush=True)
                     try:
-                        payload={'model':model,'messages':[{'role':'system','content':'Write a concise NHL briefing in '+{'fi':'Finnish','de':'German','en':'English'}[lang]+'. Use only supplied facts. Do not invent news, injuries or rumors. Plain text.'},{'role':'user','content':''}]}
+                        payload={'model':model,'messages':[{'role':'system','content':'Write a useful morning NHL news briefing in '+{'fi':'Finnish','de':'German','en':'English'}[lang]+'. Return ONLY a valid JSON array of 3 to 5 objects with keys title and body (fewer if there are fewer meaningful facts). Each title must be under 100 characters and each body 1 or 2 short sentences, at most 350 characters. Focus on notable finished games, outstanding Finnish player performances, streaks and meaningful standings changes only when supported. Do not repeat the standings or list all results. Distinguish games from season statistics. Never invent facts, trends, injuries, news or rumors. No Markdown, no introduction, no code fences. Use natural journalistic language. On a day without games say so and highlight only genuinely noteworthy form.'},{'role':'user','content':''}]}
                         result=completion_with_budget(key,payload,day,games,finns,standings,ai)
                         brief=result['choices'][0]['message']['content']
                         if not isinstance(brief,str) or not brief.strip():
                             raise ValueError('Empty completion')
-                        data['brief'][lang]=brief.strip()
+                        data['brief'][lang]=parse_brief(brief)
                         usage=result.get('usage') or {}
                         tokens={k:int(usage.get(k+'_tokens') or 0) for k in ('prompt','completion','total')}
                         for k,v in tokens.items(): ai['tokens'][k]+=v
