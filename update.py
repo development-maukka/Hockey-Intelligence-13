@@ -174,39 +174,19 @@ def europe(key, model):
     season=now.year+(now.month>=7)
     out={}
     for league in ('nl','liiga'):
-        entry={'standings':[],'games':[],'players':[],'brief':{},'errors':[]}
+        from europe_data import collect_league
+        entry=collect_league(league,season,now,safe_error)
         out[league]=entry
-        try:
-            if league=='nl':
-                from sportsdataverse.hockey.sihf import sihf_standings,sihf_results,sihf_player_stats
-                calls={'standings':lambda:sihf_standings(season=season,league_id=1),'games':lambda:sihf_results(season=season,league_id=1),'players':lambda:sihf_player_stats(season=season,league_id=1)}
-            else:
-                from sportsdataverse.hockey.liiga import liiga_standings,liiga_games,liiga_player_stats
-                calls={'standings':lambda:liiga_standings(season=season,tournament='runkosarja'),'games':lambda:liiga_games(season=season,tournament='runkosarja'),'players':lambda:liiga_player_stats(season=season,tournament='runkosarja')}
-            for name,call in calls.items():
-                try:
-                    frame=call()
-                    rows=frame.to_dicts()
-                    rows=[r for r in rows if r.get('row_type','data')=='data']
-                    if name=='games':
-                        start=(now.date()-datetime.timedelta(days=7)).isoformat()
-                        end=(now.date()+datetime.timedelta(days=1)).isoformat()
-                        rows=[r for r in rows if start<=str(r.get('date') or r.get('start') or '')[:10]<=end]
-                    entry[name]=json.loads(json.dumps(rows,default=str))
-                    print('Europe '+league+' '+name+': '+str(len(rows)),flush=True)
-                except Exception as exc:
-                    entry['errors'].append(name+': '+safe_error(exc))
-        except Exception as exc:
-            entry['errors'].append(safe_error(exc))
         if key and (entry['games'] or entry['standings']):
-            facts={'league':league,'games':entry['games'][:12],'standings':entry['standings'][:5]}
-            compact=[{k:v for k,v in r.items() if k in ('date','start','home_team_name','away_team_name','score_home','score_away','home_team','away_team','home_team_name','away_team_name','home_goals','away_goals','ended','team_name','points','rank','ranking','games_played','home_team_goals','away_team_goals','home_team_team_name','away_team_team_name')} for r in facts['games']+facts['standings']]
+            facts={'league':league,'games':sorted(entry['games'],key=lambda x:x['date'],reverse=True)[:12],'standings':entry['standings'][:5]}
+            compact=[{k:v for k,v in r.items() if k in ('date','start','home_team_name','away_team_name','score_home','score_away','status','home_team','away_team','home_team_name','away_team_name','home_goals','away_goals','ended','team_name','points','rank','ranking','games_played','home_team_goals','away_team_goals','home_team_team_name','away_team_team_name')} for r in facts['games']+facts['standings']]
             for lang in ('fi','de','en'):
                 try:
                     result=groq_request('chat/completions',key,{'model':model,'messages':[{'role':'system','content':briefing_prompt(lang,league)},{'role':'user','content':compact_json({'league':league,'rows':compact})}]})
                     entry['brief'][lang]=parse_brief(result['choices'][0]['message']['content'],lang)
                 except Exception as exc:
                     entry['errors'].append('AI '+lang+': '+safe_error(exc))
+                    entry['status']='partial'
     return out
 
 def collect():
