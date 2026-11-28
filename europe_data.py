@@ -28,6 +28,8 @@ def normalize(league, kind, rows):
                      team_id=r.get('team_id'), team_name=r.get('team_name'),
                      games_played=r.get('gp') if league == 'nl' else r.get('played_games', r.get('games')),
                      goals=r.get('g') if league == 'nl' else r.get('goals'), assists=r.get('assists'), points=r.get('points'))
+            if not x['player_name'] and x['games_played']==0:
+                continue
             if not x['player_name'] or x['points'] is None:
                 raise ValueError('Incomplete player row')
         else:

@@ -102,7 +102,7 @@ def collect_details(league,entry,all_games,fetch,now,cache_dir='.detail-cache'):
             raw=fetch(f'{LIIGA}/players/info?fromSeason={season}&toSeason={season}&tournament=runkosarja')
             if not isinstance(raw,list) or not raw:raise ValueError('Empty roster')
             for tid in ids:
-                ps=[roster_row(p,True) for p in raw if key(p.get('teamId'))==tid and not p.get('removed')]
+                ps=[roster_row(p,True) for p in raw if key(p.get('teamId'))==tid and not p.get('removed') and full_name(p)]
                 out['rosters'][tid]={'status':'ok' if ps else 'error','players':ps}
         except Exception as exc:out['rosters']={tid:{'status':'error','players':[],'error':type(exc).__name__} for tid in ids}
     for t in teams:

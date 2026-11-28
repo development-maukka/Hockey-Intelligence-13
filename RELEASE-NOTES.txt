@@ -1,3 +1,2 @@
-0.5.0
-Added National League and Liiga game statistics, rosters and recent results.
-Added team logos across National League and Liiga views.
+0.5.1
+Fixed missing Liiga scoring leaders.

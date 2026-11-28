@@ -1,4 +1,4 @@
-# Hockey Intelligence 13 — 0.5.0
+# Hockey Intelligence 13 — 0.5.1
 Development Maukka
 
 Personal NHL, National League and Liiga dashboard. European statistics use sportsdataverse 0.2.0b1 with the official National League and Liiga sources; install it for local runs. SIHF public access is discontinued. European news, transfer and injury reports show dated source headlines from swisshockeynews.ch and Jatkoaika, with SuomiKiekko as the Liiga fallback. Injury reports are not a current absence register; source text remains in its original language. European data failures do not block the NHL update. Enable Settings > Pages > GitHub Actions, optionally add repository secret GROQ_API_KEY, then manually run Update NHL dashboard. Public Pages is publicly accessible. No API key is sent to the browser. Scheduled runs are UTC and may be delayed. ESPN news, transactions and injuries are collected automatically, subject to endpoint availability. Source text is displayed in its original language. Salary cap uses the public CC0 nhl-contracts mirror at EyeWall Analytics; estimates are not official cap space. Transfer rumours are labelled separately from other contract reports. Finnish players are matched by current roster birth country. SVG icon and PWA manifest included; offline support not implemented.
@@ -6,6 +6,7 @@ Personal NHL, National League and Liiga dashboard. European statistics use sport
 Local use: python3 -m pip install 'groq>=0.30,<2', then python3 update.py, then python3 -m http.server 8000 --directory site.
 
 Changelog:
+- 0.5.1: Fixed missing Liiga scoring leaders.
 - 0.5.0: Added National League and Liiga game statistics, rosters and recent results. Added team logos across National League and Liiga views.
 - 0.4.0: Added NHL game statistics, team rosters and recent results. Added team logos to NHL games and form guide.
 - 0.3.9: Corrected the final game status. Improved National League tables on phones.

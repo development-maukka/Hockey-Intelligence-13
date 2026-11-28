@@ -28,6 +28,11 @@ class EuropeDetailTests(unittest.TestCase):
   with self.assertRaises(ValueError):liiga_box(raw,stats,G,2026)
   stats['homeTeam'][0]['teamId']='99:wrong'
   with self.assertRaises(ValueError):liiga_box(raw,stats,G,2027)
+ def test_unnamed_unused_player_does_not_erase_leaders(self):
+  rows=[{'first_name':'Valid','last_name':'Skater','points':20,'goals':10,'games':15},{'first_name':'','last_name':'','points':0,'games':0}]
+  self.assertEqual(len(normalize('liiga','players',rows)),1)
+  rows[1]['games']=1
+  with self.assertRaises(ValueError):normalize('liiga','players',rows)
  def test_goalie_roster_position(self):
   self.assertEqual(roster_row({'id':1,'role':'GOALIE','firstName':'A','lastName':'B'},True)['position'],'G')
  def test_status_and_overtime_normalization(self):
