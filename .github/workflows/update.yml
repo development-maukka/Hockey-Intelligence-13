@@ -39,6 +39,10 @@ jobs:
       - run: python -m pip install 'groq>=0.30,<2' 'beautifulsoup4>=4.12,<5'
       - run: python -m pip install 'sportsdataverse==0.2.0b1'
         continue-on-error: true
+      - run: node --check site/app.js
+      - run: node --check site/install.js
+      - run: npm install --no-save --package-lock=false jsdom@26
+      - run: node --test tests/test_install.cjs
       - run: python -m py_compile update.py
       - run: python -m unittest discover -s tests
       - uses: actions/cache@v4

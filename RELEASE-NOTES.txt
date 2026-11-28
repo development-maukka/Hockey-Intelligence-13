@@ -1,2 +1,2 @@
-0.5.2
-Added goals in scoring order with scorers and assists for all leagues.
+0.5.3
+Added app installation options and a dismissible installation suggestion.
