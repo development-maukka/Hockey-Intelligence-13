@@ -1,2 +1,3 @@
-Added NHL game statistics, team rosters and recent results.
-Added team logos to NHL games and form guide.
+0.5.0
+Added National League and Liiga game statistics, rosters and recent results.
+Added team logos across National League and Liiga views.

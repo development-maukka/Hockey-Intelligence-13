@@ -23,7 +23,7 @@ class EuropeTests(unittest.TestCase):
         self.assertIsNone(rows[0]['score_home'])
         self.assertEqual(rows[0]['date'],'2026-11-28T19:45:00+01:00')
     def test_form_uses_only_completed_last_ten(self):
-        games=[dict(date=f'2026-11-{i:02}',status='finished',home_team_id=1,away_team_id=2,score_home=3,score_away=1) for i in range(1,13)]
+        games=[dict(date=f'2026-11-{i:02}',status='finished',home_team_id=1,away_team_id=2,score_home=3,score_away=1,outcome='REG') for i in range(1,13)]
         games.append(dict(games[0],date='2026-11-28',status='scheduled',score_home=None,score_away=None))
         records=form([dict(team_id=1,team_name='A'),dict(team_id=2,team_name='B')],games)
         self.assertEqual([(r['games'],r['wins'],r['losses']) for r in records],[(10,10,0),(10,0,10)])

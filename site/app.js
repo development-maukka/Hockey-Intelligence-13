@@ -22,7 +22,7 @@ function go(id){active=leagueTabs().includes(id)?id:'overview';if(location.hash!
 function modules(s){const g=el('div',undefined,'modules');for(const id of leagueTabs().slice(1,-1)){const b=el('button');b.type='button';b.append(el('span',tabName(id)),el('span','›'));b.onclick=()=>go(id);g.append(b)}s.append(g)}
 const clean=s=>String(s??'').replace(/\*\*|__|^[#]+\s*|^\s*[-•]\s*/gm,'').trim();
 function brief(s,value){let items=[];if(Array.isArray(value)){items=value.filter(x=>x&&typeof x.title==='string'&&typeof x.body==='string').slice(0,5)}else if(typeof value==='string'){try{const v=JSON.parse(value);if(Array.isArray(v))items=v.filter(x=>x&&typeof x.title==='string'&&typeof x.body==='string').slice(0,5)}catch{}if(!items.length){const lines=value.replace(/\r/g,'').replace(/\*\*([^*\n]+)\*\*/g,'\n$1\n').split(/\n+/).map(clean).filter(Boolean);for(const line of lines){items.push({title:'',body:line});if(items.length>=12)break}}}if(!items.length){s.append(el('p',t.empty,'muted'));return}for(const item of items){const b=el('article',undefined,'brief-item');if(item.title)b.append(el('h3',clean(item.title)));b.append(el('p',clean(item.body)));s.append(b)}s.append(el('small',t.aiNote))}
-function info(s){s.append(el('p','Development Maukka'),el('h3',t.changelog));for(const line of ['0.4.0 — Added NHL game statistics, team rosters and recent results. Added team logos to NHL games and form guide.','0.3.9 — Corrected the final game status. Improved National League tables on phones.','0.3.8 — Added today’s NHL games and pregame odds.'])s.append(el('p',line));const a=data?.ai;if(!a)return;const d=el('details'),status={ok:t.ok,partial:t.partialStatus,error:t.errorStatus,not_configured:t.not_configured}[a.status]||t.unknown;d.append(el('summary',t.diagnostics+' · '+status));table(d,[t.diagnostics,''],[[t.model,a.model],[t.available,a.model_available===true?t.yes:a.model_available===false?t.no:t.unknown],[t.calls,(a.successful??0)+' / '+(a.attempted??0)],[t.tokens,a.tokens?.total],[t.last,a.last_success?new Date(a.last_success).toLocaleString(lang):'—']]);for(const err of a.errors||[])d.append(el('p',err,'muted'));s.append(d)}
+function info(s){s.append(el('p','Development Maukka'),el('h3',t.changelog));for(const line of ['0.5.0 — Added National League and Liiga game statistics, rosters and recent results. Added team logos across National League and Liiga views.','0.4.0 — Added NHL game statistics, team rosters and recent results. Added team logos to NHL games and form guide.','0.3.9 — Corrected the final game status. Improved National League tables on phones.'])s.append(el('p',line));const a=data?.ai;if(!a)return;const d=el('details'),status={ok:t.ok,partial:t.partialStatus,error:t.errorStatus,not_configured:t.not_configured}[a.status]||t.unknown;d.append(el('summary',t.diagnostics+' · '+status));table(d,[t.diagnostics,''],[[t.model,a.model],[t.available,a.model_available===true?t.yes:a.model_available===false?t.no:t.unknown],[t.calls,(a.successful??0)+' / '+(a.attempted??0)],[t.tokens,a.tokens?.total],[t.last,a.last_success?new Date(a.last_success).toLocaleString(lang):'—']]);for(const err of a.errors||[])d.append(el('p',err,'muted'));s.append(d)}
 const extra={fi:{division:'Divisioonat',conference:'Konferenssit',league:'Koko liiga',wild:'Wild Card',wins:'V',losses:'T',ot:'JA',unavailable:'Tietolähde ei ole tällä hetkellä käytettävissä.',key:'Palkkakattodatan käyttöoikeutta ei ole vielä määritetty.',original:'Alkuperäinen lähdekieli',rumours:'Siirtohuhut eivät vielä sisälly automaattiseen hakuun.',return:'Paluuarvio',date:'Päivä'},de:{division:'Divisionen',conference:'Konferenzen',league:'Gesamtliga',wild:'Wild Card',wins:'S',losses:'N',ot:'OT',unavailable:'Datenquelle derzeit nicht verfügbar.',key:'Der Zugriff auf Salary-Cap-Daten ist noch nicht eingerichtet.',original:'Originalsprache der Quelle',rumours:'Transfergerüchte werden noch nicht automatisch erfasst.',return:'Rückkehr',date:'Datum'},en:{division:'Divisions',conference:'Conferences',league:'League',wild:'Wild Card',wins:'W',losses:'L',ot:'OT',unavailable:'Data source currently unavailable.',key:'Salary cap data access is not configured yet.',original:'Original source language',rumours:'Trade rumours are not collected automatically yet.',return:'Expected return',date:'Date'}}[lang];
 let standingsMode='division';
 const rank=(x,k)=>Number(x[k])||999;
@@ -114,6 +114,25 @@ function europeanReportView(s,id,d){
  const url=entry?.url||(league==='nl'?'https://swisshockeynews.ch/en/national-league':'https://www.jatkoaika.com/LIIGA');
  if(/^https:\/\//.test(url)){const a=el('a',t.source+' · '+(entry?.source||(league==='nl'?'swisshockeynews.ch':'Jatkoaika')));a.href=url;a.rel='noopener noreferrer';s.append(a)}
 }
+function euTeam(d,id){return (d.standings||[]).find(t=>String(t.team_id)===String(id))}
+function euTeamLabel(d,id,name,clickable=false){
+ const team=euTeam(d,id),code=team?.team_code||name||team?.team_name||'—',mark=teamLabel(code,team?.team_logo);
+ if(!clickable){mark.title=team?.team_name||name||code;return mark}
+ const b=detailButton('',(team?.team_name||name||code)+' · '+detailText.rosterHint,()=>openRoster(code,d.details?.rosters,String(id),d.details));b.append(mark);b.title=team?.team_name||name||code;return b;
+}
+function euGameLike(g,d){return {id:g.game_id,startTimeUTC:g.date,gameState:g.status==='scheduled'?'FUT':g.status==='finished'?'OFF':'LIVE',awayTeam:{abbrev:euTeam(d,g.away_team_id)?.team_code||g.away_code||g.away_team_name,score:g.score_away},homeTeam:{abbrev:euTeam(d,g.home_team_id)?.team_code||g.home_code||g.home_team_name,score:g.score_home}}}
+function euGamesView(s,d){
+ const statuses={fi:{finished:'Päättynyt',scheduled:'Tulossa',live:'Käynnissä',in_progress:'Käynnissä',postponed:'Siirretty',cancelled:'Peruttu'},de:{finished:'Beendet',scheduled:'Geplant',live:'Live',in_progress:'Live',postponed:'Verschoben',cancelled:'Abgesagt'},en:{finished:'Final',scheduled:'Scheduled',live:'Live',in_progress:'Live',postponed:'Postponed',cancelled:'Cancelled'}}[lang];
+ const rows=[...(d.games||[])].sort((a,b)=>b.date.localeCompare(a.date));
+ table(s,[extra.date,t.away,t.score,t.home],rows.map(g=>['','',g.score_away==null||g.score_home==null?'—':g.score_away+' : '+g.score_home,'']));
+ const tbl=s.querySelector('table');if(!tbl)return;tbl.classList.add('nl-games');
+ [...tbl.querySelectorAll('tbody tr')].forEach((tr,i)=>{const g=rows[i],date=new Date(g.date),tz=league==='nl'?'Europe/Zurich':'Europe/Helsinki';tr.children[0].append(el('span',date.toLocaleDateString(lang,{timeZone:tz,month:'2-digit',day:'2-digit'})),el('small',date.toLocaleTimeString(lang,{timeZone:tz,hour:'2-digit',minute:'2-digit',hour12:false})),el('small',statuses[g.status]||t.unknown));tr.children[1].append(euTeamLabel(d,g.away_team_id,g.away_team_name));tr.children[3].append(euTeamLabel(d,g.home_team_id,g.home_team_name));const score=tr.children[2].textContent;tr.children[2].replaceChildren(detailButton(score,g.away_team_name+' @ '+g.home_team_name+' · '+detailText.gameHint,()=>openGame(euGameLike(g,d),d.details)))})
+}
+function euFormView(s,d){
+ const rows=[...(d.form||[])].filter(r=>r.games).sort((a,b)=>(2*b.wins+b.ot_losses)-(2*a.wins+a.ot_losses));
+ table(s,[t.team,t.played,t.l10],rows.map(x=>['',x.games,[x.wins,x.losses,x.ot_losses].join('–')+(x.unknown_losses?' (+'+x.unknown_losses+' ?)':'')]));
+ s.querySelectorAll('tbody tr').forEach((tr,i)=>{const x=rows[i],code=euTeam(d,x.team_id)?.team_code||x.team_name;tr.children[0].append(euTeamLabel(d,x.team_id,x.team_name));const value=tr.children[2].textContent;tr.children[2].replaceChildren(detailButton(value,x.team_name+' · '+detailText.historyHint,()=>openHistory(code,d.details,String(x.team_id))))});
+}
 function euView(s){
  const d=data?.leagues?.[league];const e=europeanLabels;
  if(!d){s.append(el('p',data?e.unavailable:failed?t.error:t.loading,'muted'));return}
@@ -122,23 +141,12 @@ function euView(s){
  if(active==='overview'){brief(s,d.brief?.[lang]);modules(s)}
  else if(active==='standings'){
  table(s,['#',t.team,t.played,t.points,e.gf,e.ga],standings.map(x=>[x.rank,x.team_name,x.games_played,x.points,x.goals_for,x.goals_against]));
- const rows=s.querySelectorAll('tbody tr');rows.forEach((tr,i)=>{const u=standings[i].team_logo;if(typeof u==='string'&&u.startsWith('https://')){const img=el('img');img.src=u;img.alt='';img.width=24;img.height=24;img.className='team-mark';img.onerror=()=>img.remove();tr.children[1].prepend(img)}})
+ const rows=s.querySelectorAll('tbody tr');rows.forEach((tr,i)=>tr.children[1].replaceChildren(euTeamLabel(d,standings[i].team_id,standings[i].team_name,true)))
  }
- else if(active==='form'){
- const label={fi:'Viimeiset enintään 10 ottelua: voitot ja tappiot, myös jatkoajalla tai voittolaukauksilla.',de:'Bis zu 10 letzte Spiele: Siege und Niederlagen inklusive Verlängerung und Penaltyschiessen.',en:'Up to 10 latest games: wins and losses including overtime and shootouts.'}[lang];
- s.append(el('p',label,'muted'));table(s,[t.team,t.played,extra.wins,extra.losses],(d.form||[]).filter(x=>x.games).map(x=>[x.team_name,x.games,x.wins,x.losses]))
- }
- else if(active==='games'){
- const statuses={fi:{finished:'Päättynyt',scheduled:'Tulossa',live:'Käynnissä',in_progress:'Käynnissä',postponed:'Siirretty',cancelled:'Peruttu'},de:{finished:'Beendet',scheduled:'Geplant',live:'Live',in_progress:'Live',postponed:'Verschoben',cancelled:'Abgesagt'},en:{finished:'Final',scheduled:'Scheduled',live:'Live',in_progress:'Live',postponed:'Postponed',cancelled:'Cancelled'}}[lang];
- const rows=[...(d.games||[])].sort((a,b)=>b.date.localeCompare(a.date));
- if(league==='nl'){
- table(s,[e.date,t.away,t.score,t.home],rows.map(x=>['',x.away_team_name,x.score_away==null||x.score_home==null?'—':x.score_away+' : '+x.score_home,x.home_team_name]));
- const tbl=s.querySelector('table');if(tbl){tbl.classList.add('nl-games');
- [...tbl.querySelectorAll('tbody tr')].forEach((tr,i)=>{const x=rows[i],date=new Date(x.date),cell=tr.children[0];cell.append(el('span',date.toLocaleDateString(lang,{timeZone:'Europe/Zurich',month:'2-digit',day:'2-digit'})),el('small',date.toLocaleTimeString(lang,{timeZone:'Europe/Zurich',hour:'2-digit',minute:'2-digit'})),el('small',statuses[x.status]||x.status))});}
- }else table(s,[e.date,t.away,t.score,t.home,t.status],rows.map(x=>[new Date(x.date).toLocaleString(lang,{timeZone:league==='nl'?'Europe/Zurich':'Europe/Helsinki',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),x.away_team_name,x.score_away==null||x.score_home==null?'—':x.score_away+' : '+x.score_home,x.home_team_name,statuses[x.status]||x.status]));
- }
+ else if(active==='form'){euFormView(s,d)}
+ else if(active==='games'){euGamesView(s,d)}
  else if(active==='players'){
- if(league==='nl'){
+ if(league==='nl'||league==='liiga'){
  const players=stats.slice(0,100);
  table(s,[t.name,t.played,t.goals,t.assists,t.points],players.map(x=>['',x.games_played,x.goals,x.assists,x.points]));
  const tbl=s.querySelector('table');if(tbl){tbl.classList.add('nl-players');
@@ -164,30 +172,31 @@ function capView(s,c){
 }
 
 const detailText={
-fi:{game:'Ottelutilastot',roster:'Roster',history:'Viimeiset 10 runkosarjaottelua',close:'Sulje',position:'Pelipaikka',country:'Maa',shots:'Lauk.',toi:'Peliaika',goalies:'Maalivahdit',saves:'Torjunnat',savePct:'Torjunta-%',against:'PM',result:'Tulos',unavailable:'Näitä tietoja ei saatu viimeisimmässä päivityksessä.',pregame:'Ottelutilastot tulevat saataville ottelun alettua.',note:'NHL:n tiedot viimeisimmän päivityksen hetkellä.',rosterHint:'Avaa joukkueen rosteri',gameHint:'Avaa ottelutilastot',historyHint:'Näytä viimeiset 10 ottelua'},
-de:{game:'Spielstatistik',roster:'Kader',history:'Letzte 10 Spiele der regulären Saison',close:'Schliessen',position:'Position',country:'Land',shots:'Schüsse',toi:'Eiszeit',goalies:'Torhüter',saves:'Paraden',savePct:'Fangquote',against:'GT',result:'Resultat',unavailable:'Diese Daten konnten beim letzten Update nicht abgerufen werden.',pregame:'Spielstatistiken sind nach Spielbeginn verfügbar.',note:'NHL-Daten zum Zeitpunkt der letzten Aktualisierung.',rosterHint:'Teamkader öffnen',gameHint:'Spielstatistik öffnen',historyHint:'Letzte 10 Spiele anzeigen'},
-en:{game:'Game statistics',roster:'Roster',history:'Last 10 regular-season games',close:'Close',position:'Position',country:'Country',shots:'Shots',toi:'TOI',goalies:'Goalies',saves:'Saves',savePct:'Save %',against:'GA',result:'Result',unavailable:'These details were unavailable at the last update.',pregame:'Game statistics become available after the game starts.',note:'NHL data as of the last update.',rosterHint:'Open team roster',gameHint:'Open game statistics',historyHint:'Show last 10 games'}
+fi:{game:'Ottelutilastot',roster:'Roster',seasonRoster:'Kauden pelaajaluettelo',history:'Viimeiset 10 runkosarjaottelua',close:'Sulje',position:'Pelipaikka',country:'Maa',shots:'Lauk.',attempts:'Laukausyritykset',toi:'Peliaika',goalies:'Maalivahdit',saves:'Torjunnat',savePct:'Torjunta-%',against:'PM',result:'Tulos',unavailable:'Näitä tietoja ei saatu viimeisimmässä päivityksessä.',pregame:'Ottelutilastot tulevat saataville ottelun alettua.',note:'NHL:n tiedot viimeisimmän päivityksen hetkellä.',rosterHint:'Avaa joukkueen rosteri',gameHint:'Avaa ottelutilastot',historyHint:'Näytä viimeiset 10 ottelua'},
+de:{game:'Spielstatistik',roster:'Kader',seasonRoster:'Spieler der Saison',history:'Letzte 10 Spiele der regulären Saison',close:'Schliessen',position:'Position',country:'Land',shots:'Schüsse',attempts:'Schussversuche',toi:'Eiszeit',goalies:'Torhüter',saves:'Paraden',savePct:'Fangquote',against:'GT',result:'Resultat',unavailable:'Diese Daten konnten beim letzten Update nicht abgerufen werden.',pregame:'Spielstatistiken sind nach Spielbeginn verfügbar.',note:'NHL-Daten zum Zeitpunkt der letzten Aktualisierung.',rosterHint:'Teamkader öffnen',gameHint:'Spielstatistik öffnen',historyHint:'Letzte 10 Spiele anzeigen'},
+en:{game:'Game statistics',roster:'Roster',seasonRoster:'Season player register',history:'Last 10 regular-season games',close:'Close',position:'Position',country:'Country',shots:'Shots',attempts:'Shot attempts',toi:'TOI',goalies:'Goalies',saves:'Saves',savePct:'Save %',against:'GA',result:'Result',unavailable:'These details were unavailable at the last update.',pregame:'Game statistics become available after the game starts.',note:'NHL data as of the last update.',rosterHint:'Open team roster',gameHint:'Open game statistics',historyHint:'Show last 10 games'}
 }[lang];
 function detailButton(text,label,action){const b=el('button',text,'text-link');b.type='button';b.setAttribute('aria-label',label);b.onclick=action;return b}
 function teamLabel(code,logo,roster=false){
  const node=roster?detailButton('',code+' · '+detailText.rosterHint,()=>openRoster(code)):el('span');node.classList.add('team-label');
  const url=logo||(data?.standings||[]).find(x=>teamCode(x)===code)?.teamLogo;
- if(typeof url==='string'&&/^https:\/\/assets\.nhle\.com\//.test(url)){const img=el('img');img.src=url;img.alt='';img.loading='lazy';img.onerror=()=>img.remove();node.append(img)}
+ if(typeof url==='string'&&/^https:\/\//.test(url)){const img=el('img');img.src=url;img.alt='';img.loading='lazy';img.onerror=()=>img.remove();node.append(img)}
  node.append(el('span',code||'—'));return node;
 }
-function openDetail(title,fill){const dialog=$('detail-dialog'),body=$('detail-content');$('detail-title').textContent=title;$('detail-close').textContent=detailText.close;body.replaceChildren();body.append(el('p',detailText.note+' '+(data?.details?.updated?new Date(data.details.updated).toLocaleString(lang):''),'muted detail-note'));fill(body);if(!dialog.open)dialog.showModal()}
+function openDetail(title,fill,source='NHL',updated=data?.details?.updated){const dialog=$('detail-dialog'),body=$('detail-content');$('detail-title').textContent=title;$('detail-close').textContent=detailText.close;body.replaceChildren();body.append(el('p',detailText.note.replace('NHL',source)+' '+(updated?new Date(updated).toLocaleString(lang):''),'muted detail-note'));fill(body);if(!dialog.open)dialog.showModal()}
 $('detail-close').onclick=()=>$('detail-dialog').close();
-function openRoster(code){openDetail(code+' · '+detailText.roster,s=>{
- const r=data?.rosters?.[code];if(r?.status!=='ok'){s.append(el('p',detailText.unavailable));return}
+function openRoster(code,rosters=data?.rosters,teamKey=code,store=data?.details){openDetail(code+' · '+detailText.roster,s=>{
+ const r=rosters?.[teamKey];if(r?.status!=='ok'){s.append(el('p',detailText.unavailable));return}
+ if(store?.rosterBasis==='season')s.append(el('p',detailText.seasonRoster,'muted'));
  table(s,['#',t.name,detailText.position,detailText.country],(r.players||[]).map(p=>[p.number,p.name,p.position,p.country]));s.querySelector('table')?.classList.add('roster-table');
-})}
-function openHistory(code){openDetail(code+' · '+detailText.history,s=>{
- const h=data?.details?.history?.[code];if(h?.status!=='ok'){s.append(el('p',detailText.unavailable));return}
+},store?.source||'NHL',store?.updated)}
+function openHistory(code,store=data?.details,teamKey=code){openDetail(code+' · '+detailText.history,s=>{
+ const h=store?.history?.[teamKey];if(h?.status!=='ok'){s.append(el('p',detailText.unavailable));return}
  const result={W:extra.wins,L:extra.losses,OT:extra.ot};
  table(s,[extra.date,t.games,t.score,detailText.result],(h.games||[]).map(g=>[new Date(g.date).toLocaleDateString(lang),g.away+' @ '+g.home,g.away_score+' : '+g.home_score+(['OT','SO'].includes(g.outcome)?' ('+g.outcome+')':''),result[g.result]||'—']));s.querySelector('table')?.classList.add('last-ten');
-})}
-function openGame(g){openDetail(g.awayTeam.abbrev+' @ '+g.homeTeam.abbrev+' · '+detailText.game,s=>{
- const record=data?.details?.games?.[String(g.id)];
+},store?.source||'NHL',store?.updated)}
+function openGame(g,store=data?.details){openDetail(g.awayTeam.abbrev+' @ '+g.homeTeam.abbrev+' · '+detailText.game,s=>{
+ const record=store?.games?.[String(g.id)];
  if(record?.status!=='ok'){s.append(el('p',['FUT','PRE'].includes(g.gameState)?detailText.pregame:detailText.unavailable));return}
  const b=record.data,a=b.awayTeam,h=b.homeTeam;
  s.append(el('h3',a.abbrev+' '+(a.score??'—')+' : '+(h.score??'—')+' '+h.abbrev));
@@ -195,11 +204,11 @@ function openGame(g){openDetail(g.awayTeam.abbrev+' @ '+g.homeTeam.abbrev+' · '
  table(s,['',a.abbrev,h.abbrev],[[detailText.shots,a.sog,h.sog]]);
  for(const [side,team] of [['awayTeam',a],['homeTeam',h]]){
   s.append(el('h3',team.abbrev));const p=b.playerByGameStats?.[side]||{};
-  table(s,[t.name,t.goals,t.assists,t.points,detailText.shots,detailText.toi],[...(p.forwards||[]),...(p.defense||p.defensemen||[])].map(x=>[x.name?.default||x.name,x.goals,x.assists,x.points,x.sog,x.toi]));
+  table(s,[t.name,t.goals,t.assists,t.points,b.playerShotsType==='attempts'?detailText.attempts:detailText.shots,detailText.toi],[...(p.forwards||[]),...(p.defense||p.defensemen||[])].map(x=>[x.name?.default||x.name,x.goals,x.assists,x.points,x.sog,x.toi]));
   s.append(el('h3',team.abbrev+' · '+detailText.goalies));
   table(s,[t.name,detailText.saves,detailText.against,detailText.savePct],(p.goalies||[]).map(x=>[x.name?.default||x.name,x.saves,x.goalsAgainst,Number.isFinite(x.savePctg)?(100*x.savePctg).toLocaleString(lang,{maximumFractionDigits:1})+' %':'—']));
  }
-})}
+},store?.source||'NHL',store?.updated)}
 function gamesView(s,games){
  table(s,[t.away,t.score,t.home,t.status],games.map(g=>[g.awayTeam?.abbrev,(g.awayTeam?.score??'—')+' : '+(g.homeTeam?.score??'—'),g.homeTeam?.abbrev,['OFF','FINAL'].includes(g.gameState)?'Final':g.gameState]));
  s.querySelectorAll('tbody tr').forEach((tr,i)=>{const g=games[i];tr.children[0].replaceChildren(teamLabel(g.awayTeam.abbrev,g.awayTeam.logo));tr.children[2].replaceChildren(teamLabel(g.homeTeam.abbrev,g.homeTeam.logo));const score=tr.children[1].textContent;tr.children[1].replaceChildren(detailButton(score,g.awayTeam.abbrev+' @ '+g.homeTeam.abbrev+' · '+detailText.gameHint,()=>openGame(g)))})

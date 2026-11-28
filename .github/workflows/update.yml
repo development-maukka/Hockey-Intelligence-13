@@ -7,6 +7,7 @@ on:
       - 'site/**'
       - 'update.py'
       - 'europe_data.py'
+      - 'europe_details.py'
       - 'europe_news.py'
       - 'nhl_today.py'
       - 'nhl_details.py'
@@ -39,6 +40,11 @@ jobs:
         continue-on-error: true
       - run: python -m py_compile update.py
       - run: python -m unittest discover -s tests
+      - uses: actions/cache@v4
+        with:
+          path: .detail-cache
+          key: europe-details-v1-${{ github.run_id }}
+          restore-keys: europe-details-v1-
       - run: python update.py
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}

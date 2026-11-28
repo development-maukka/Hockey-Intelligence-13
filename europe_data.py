@@ -18,7 +18,7 @@ def normalize(league, kind, rows):
                      points=r.get('po') if league == 'nl' else r.get('points'),
                      goals_for=r.get('g') if league == 'nl' else r.get('goals'),
                      goals_against=r.get('ga') if league == 'nl' else r.get('goals_against'),
-                     team_logo=r.get('team_logos_light_bg'))
+                     team_logo=(f"https://www.nationalleague.ch/api/teams/{r.get('team_id')}/logo" if league=='nl' else r.get('team_logos_light_bg')),team_code=r.get('short_name') if league=='nl' else r.get('team_name'))
             if not x['team_name'] or x['rank'] is None or x['points'] is None:
                 raise ValueError('Incomplete standings row')
         elif kind == 'players':
@@ -37,11 +37,14 @@ def normalize(league, kind, rows):
             if not date:
                 raise ValueError('Missing game date')
             start = datetime.datetime.fromisoformat(date.replace('Z', '+00:00'))
-            status = r.get('base_status') or r.get('status') if league == 'nl' else ('finished' if r.get('ended') else 'live' if r.get('started') else 'scheduled')
+            status = (r.get('base_status') or r.get('status')) if league == 'nl' else ('finished' if r.get('ended') else 'live' if r.get('started') else 'scheduled')
+            status={'beforeStartOfPlay':'scheduled','inProgress':'live','playing':'live'}.get(status,status)
+            outcome=('SO' if r.get('is_shootout') else 'OT' if r.get('is_overtime') else 'REG' if r.get('is_overtime') is False and r.get('is_shootout') is False else None) if league=='nl' else {'ENDED_DURING_REGULAR_GAME_TIME':'REG','ENDED_DURING_OVERTIME':'OT','ENDED_DURING_EXTENDED_GAME_TIME':'OT','ENDED_DURING_WINNING_SHOT_COMPETITION':'SO'}.get(r.get('finished_type'))
             x = dict(game_id=r.get('game_id'), date=start.astimezone(ZoneInfo('Europe/Zurich' if league == 'nl' else 'Europe/Helsinki')).isoformat(),
                      home_team_id=r.get('home_team_id'), away_team_id=r.get('away_team_id'),
                      home_team_name=r.get('home_team_name') if league == 'nl' else r.get('home_name'),
                      away_team_name=r.get('away_team_name') if league == 'nl' else r.get('away_name'), status=status,
+                     outcome=outcome,home_code=r.get('home_team_short_name') if league=='nl' else r.get('home_name'),away_code=r.get('away_team_short_name') if league=='nl' else r.get('away_name'),
                      score_home=r.get('home_team_result') if league == 'nl' else r.get('home_goals'),
                      score_away=r.get('away_team_result') if league == 'nl' else r.get('away_goals'))
             if status not in ('finished', 'live', 'in_progress', 'playing'):
@@ -63,7 +66,10 @@ def form(standings, games):
     for team in standings:
         recent = sorted((g for g in games if g['status'] == 'finished' and team['team_id'] in (g['home_team_id'], g['away_team_id']) and g['score_home'] is not None and g['score_away'] is not None), key=lambda g: g['date'], reverse=True)[:10]
         wins = sum((g['score_home'] > g['score_away']) == (team['team_id'] == g['home_team_id']) for g in recent)
-        records.append(dict(team_name=team['team_name'], games=len(recent), wins=wins, losses=len(recent)-wins))
+        losses=[g for g in recent if (g['score_home'] > g['score_away']) != (team['team_id'] == g['home_team_id'])]
+        ot=sum(g.get('outcome') in ('OT','SO') for g in losses)
+        unknown=sum(g.get('outcome') is None for g in losses)
+        records.append(dict(team_id=team['team_id'],team_name=team['team_name'], games=len(recent), wins=wins, losses=len(losses)-ot-unknown,ot_losses=ot,unknown_losses=unknown))
     return sorted(records, key=lambda x: x['wins'], reverse=True)
 
 
@@ -91,6 +97,9 @@ def collect_league(league, season, now, error_text):
         except Exception as exc:
             entry['errors'].append(name+': '+error_text(exc))
             print(f'Europe {league} {name}: {type(exc).__name__}: {str(exc)[:200]}', flush=True)
+    from europe_details import collect_details
+    from update import get
+    entry['details']=collect_details(league,entry,all_games,get,now)
     entry['form'] = form(entry['standings'], all_games)
     entry['status'] = 'partial' if entry['errors'] else 'ok'
     return entry
