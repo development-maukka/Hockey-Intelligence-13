@@ -11,6 +11,7 @@ on:
       - 'europe_news.py'
       - 'nhl_today.py'
       - 'nhl_details.py'
+      - 'scoring.py'
       - 'tests/**'
       - '.github/workflows/update.yml'
       - 'requirements*.txt'
@@ -43,8 +44,8 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .detail-cache
-          key: europe-details-v1-${{ github.run_id }}
-          restore-keys: europe-details-v1-
+          key: europe-details-v2-${{ github.run_id }}
+          restore-keys: europe-details-v2-
       - run: python update.py
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}

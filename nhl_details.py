@@ -1,6 +1,7 @@
 """Small, independently failing NHL detail snapshots for interactive views."""
 import concurrent.futures
 import datetime
+from scoring import nhl_goals,safe_goals
 
 def name(value):return value.get('default','') if isinstance(value,dict) else str(value or '')
 
@@ -45,7 +46,10 @@ def collect_details(games,teams,now,nhl,cached_boxes=None):
         game_id,g=pair
         try:
             raw=cache.get(game_id) or nhl(f'gamecenter/{game_id}/boxscore')
-            return str(game_id),dict(status='ok',data=box_detail(raw,game_id))
+            data=box_detail(raw,game_id)
+            try:data['scoring']=safe_goals(nhl_goals,nhl(f'gamecenter/{game_id}/landing'),data)
+            except Exception as exc:data['scoring']={'status':'error','goals':[],'error':type(exc).__name__}
+            return str(game_id),dict(status='ok',data=data)
         except Exception as exc:return str(game_id),dict(status='error',error=type(exc).__name__)
     def history(team):
         try:return team,dict(status='ok',games=last_ten(nhl(f'club-schedule-season/{team}/now'),team,now))

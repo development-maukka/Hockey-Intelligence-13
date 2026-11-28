@@ -3,6 +3,7 @@ import concurrent.futures
 import datetime
 import json
 from pathlib import Path
+from scoring import nl_goals,liiga_goals,safe_goals
 
 NL='https://www.nationalleague.ch'
 LIIGA='https://liiga.fi/api/v2'
@@ -44,6 +45,7 @@ def nl_box(raw,g,season):
                 row.update(saves=p.get('svs'),goalsAgainst=p.get('ga'),savePctg=rate/100 if rate is not None and p.get('sa') else None)
             players['goalies' if goalie else 'defense' if p.get('position')=='defender' else 'forwards'].append(row)
         out['playerByGameStats'][side+'Team']=players
+    out['scoring']=safe_goals(nl_goals,raw,out,g.get('outcome'))
     return out
 
 def liiga_box(raw,stats,g,season):
@@ -81,6 +83,7 @@ def liiga_box(raw,stats,g,season):
         out[side+'Team']={'abbrev':g.get(side+'_code') or g[side+'_team_name'],'score':team.get('goals')}
         out['playerByGameStats'][side+'Team']=players
     out['homeTeam']['sog']=shots_against['away'];out['awayTeam']['sog']=shots_against['home']
+    out['scoring']=safe_goals(liiga_goals,raw,out)
     return out
 
 def collect_details(league,entry,all_games,fetch,now,cache_dir='.detail-cache'):
@@ -120,7 +123,7 @@ def collect_details(league,entry,all_games,fetch,now,cache_dir='.detail-cache'):
             if not gid.isdigit():raise ValueError('Invalid game id')
             if path.exists():
                 saved=json.loads(path.read_text())
-                if saved.get('identity')==[league,season,gid,key(g['home_team_id']),key(g['away_team_id']),g['score_home'],g['score_away']] and 0<=now.timestamp()-saved['fetched']<86400:return gid,{'status':'ok','data':saved['data']}
+                if 'scoring' in saved.get('data',{}) and saved.get('identity')==[league,season,gid,key(g['home_team_id']),key(g['away_team_id']),g['score_home'],g['score_away']] and 0<=now.timestamp()-saved['fetched']<86400:return gid,{'status':'ok','data':saved['data']}
             if league=='nl':data=nl_box(fetch(f'{NL}/api/games/{gid}'),g,season)
             else:data=liiga_box(fetch(f'{LIIGA}/games/{season}/{gid}'),fetch(f'{LIIGA}/games/stats/{season}/{gid}'),g,season)
             if g['status']=='finished':path.write_text(json.dumps({'identity':[league,season,gid,key(g['home_team_id']),key(g['away_team_id']),g['score_home'],g['score_away']],'fetched':now.timestamp(),'data':data}))

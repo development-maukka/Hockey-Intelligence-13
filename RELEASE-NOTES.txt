@@ -1,2 +1,2 @@
-0.5.1
-Fixed missing Liiga scoring leaders.
+0.5.2
+Added goals in scoring order with scorers and assists for all leagues.

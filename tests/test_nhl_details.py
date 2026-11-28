@@ -28,4 +28,4 @@ class DetailTests(unittest.TestCase):
   cached={1:{'id':1,'awayTeam':{'abbrev':'BOS'},'homeTeam':{'abbrev':'TOR'},'playerByGameStats':{'awayTeam':{},'homeTeam':{}}}}
   r=collect_details([game(1),game(1),game(2),game(3,state='FUT')],['TOR','BOS'],NOW,fetch,cached)
   self.assertEqual(r['games']['1']['status'],'ok');self.assertEqual(r['games']['2']['status'],'error')
-  self.assertNotIn('3',r['games']);self.assertEqual(len(calls),3);self.assertTrue(all(v['status']=='error' for v in r['history'].values()))
+  self.assertNotIn('3',r['games']);self.assertEqual(len(calls),4);self.assertTrue(all(v['status']=='error' for v in r['history'].values()))

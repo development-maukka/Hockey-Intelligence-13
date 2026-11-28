@@ -1,4 +1,4 @@
-# Hockey Intelligence 13 — 0.5.1
+# Hockey Intelligence 13 — 0.5.2
 Development Maukka
 
 Personal NHL, National League and Liiga dashboard. European statistics use sportsdataverse 0.2.0b1 with the official National League and Liiga sources; install it for local runs. SIHF public access is discontinued. European news, transfer and injury reports show dated source headlines from swisshockeynews.ch and Jatkoaika, with SuomiKiekko as the Liiga fallback. Injury reports are not a current absence register; source text remains in its original language. European data failures do not block the NHL update. Enable Settings > Pages > GitHub Actions, optionally add repository secret GROQ_API_KEY, then manually run Update NHL dashboard. Public Pages is publicly accessible. No API key is sent to the browser. Scheduled runs are UTC and may be delayed. ESPN news, transactions and injuries are collected automatically, subject to endpoint availability. Source text is displayed in its original language. Salary cap uses the public CC0 nhl-contracts mirror at EyeWall Analytics; estimates are not official cap space. Transfer rumours are labelled separately from other contract reports. Finnish players are matched by current roster birth country. SVG icon and PWA manifest included; offline support not implemented.
@@ -6,6 +6,7 @@ Personal NHL, National League and Liiga dashboard. European statistics use sport
 Local use: python3 -m pip install 'groq>=0.30,<2', then python3 update.py, then python3 -m http.server 8000 --directory site.
 
 Changelog:
+- 0.5.2: Added goals in scoring order with scorers and assists for all leagues.
 - 0.5.1: Fixed missing Liiga scoring leaders.
 - 0.5.0: Added National League and Liiga game statistics, rosters and recent results. Added team logos across National League and Liiga views.
 - 0.4.0: Added NHL game statistics, team rosters and recent results. Added team logos to NHL games and form guide.
@@ -35,3 +36,5 @@ Version 0.4.0 adds NHL-only detail snapshots. Game scores open NHL box scores wi
 
 
 Version 0.5.0 extends game statistics, rosters and last-ten results to National League and Liiga. European rosters list season-registered players; they are not a matchday lineup or a live transfer register. Liiga player shots are shot attempts, separately labelled from team shots on goal. Final game boxes are cached for up to 24 hours, with score corrections invalidating the cache. The cache is not part of the deployed site or source archive.
+
+Version 0.5.2 adds verified chronological goal summaries before player statistics in all three leagues. Elapsed game time is shown consistently. Shootout decisions are separate from assisted goals, and missing or inconsistent source events display an unavailable message without hiding player statistics. NHL summaries use gamecenter landing data; National League uses game actions; Liiga uses goal events, excluding unsuccessful penalty shots.
