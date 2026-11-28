@@ -1,2 +1,2 @@
-0.5.3
-Added app installation options and a dismissible installation suggestion.
+0.5.4
+Fixed app installation options in settings.

@@ -64,3 +64,7 @@ test('dismissal synchronizes with other tabs',()=>{
 test('dashboard still loads data and opens settings with installation enabled',async()=>{
  const a=second({resolveFetch:true});await a.flush();a.w.go('games');assert.equal(a.w.document.querySelector('#main h2').textContent,'Games');assert(a.settings());assert(!a.banner().hidden);a.dom.window.close();
 });
+
+test('published HTML uses current version for both application scripts',()=>{
+ const html=fs.readFileSync(path.join(root,'site/index.html'),'utf8');const version=html.match(/Development Maukka · v([0-9.]+)/)[1];assert(html.includes('app.js?v='+version+'"'));assert(html.includes('install.js?v='+version+'"'));
+});
