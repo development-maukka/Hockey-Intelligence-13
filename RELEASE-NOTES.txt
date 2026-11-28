@@ -1,2 +1,2 @@
-Corrected the final game status.
-Improved National League tables on phones.
+Added NHL game statistics, team rosters and recent results.
+Added team logos to NHL games and form guide.

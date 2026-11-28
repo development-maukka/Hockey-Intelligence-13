@@ -198,13 +198,17 @@ def collect():
         try: return nhl(f"gamecenter/{g['id']}/boxscore")
         except Exception: return None
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool: boxes=list(pool.map(box,games))
-    finns=[]; errors=[]; rosters={}
+    finns=[]; errors=[]; rosters={}; team_rosters={}
+    from nhl_details import normalize_roster,collect_details
     def roster(t):
         try: return t,nhl('roster/'+t+'/current')
         except Exception: return t,None
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
         for t,r in pool.map(roster,[s['teamAbbrev']['default'] for s in standings]):
-            if r is None: errors.append('Roster: '+t); continue
+            if r is None:
+                errors.append('Roster: '+t);team_rosters[t]={'status':'error','players':[]};continue
+            try:team_rosters[t]={'status':'ok','players':normalize_roster(r)}
+            except Exception:team_rosters[t]={'status':'error','players':[]}
             for group in r.values():
                 if isinstance(group,list):
                     for p in group:
@@ -218,6 +222,9 @@ def collect():
     data={'updated':now.isoformat(),'date':str(day),'games':games,'standings':standings,'finns':finns,'errors':errors,'brief':{}}
     from nhl_today import collect_today
     data['today']=collect_today(now,get,nhl)
+    data['rosters']=team_rosters
+    detail_games=games+[g for day in data['today']['days'] for g in day['games']]
+    data['details']=collect_details(detail_games,[s['teamAbbrev']['default'] for s in standings],now,nhl,{g['id']:b for g,b in zip(games,boxes) if b})
     data['coverage']=coverage()
     key=os.getenv('GROQ_API_KEY','').strip()
     model=os.getenv('GROQ_MODEL','openai/gpt-oss-120b').strip()
